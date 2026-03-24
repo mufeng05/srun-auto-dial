@@ -173,9 +173,15 @@ impl SrunService {
         result
     }
 
-    pub async fn logout_macvlan(&self, parent: &str) -> Result<()> {
-        let random_mac = generate_mac_address();
-        self.setup_macvlan(parent, &random_mac).await?;
+    pub async fn get_status_macvlan(&self, parent: &str, mac: &[u8]) -> Result<StatusResult> {
+        self.setup_macvlan(parent, mac).await?;
+        let result = self.get_status(MACVLAN_NAME).await;
+        self.cleanup_macvlan().await;
+        result
+    }
+
+    pub async fn logout_macvlan(&self, parent: &str, mac: &[u8]) -> Result<()> {
+        self.setup_macvlan(parent, mac).await?;
 
         let result = self.do_macvlan_logout().await;
 

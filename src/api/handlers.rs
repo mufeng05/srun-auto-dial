@@ -70,6 +70,23 @@ pub async fn logout_local(
     }
 }
 
+pub async fn status_macvlan(
+    State(service): State<AppState>,
+    Json(req): Json<MacvlanStatusRequest>,
+) -> Response {
+    let mac = match parse_mac(&req.mac_address) {
+        Ok(m) => m,
+        Err(e) => return error_response(e),
+    };
+    match service
+        .get_status_macvlan(&req.parent_interface, &mac)
+        .await
+    {
+        Ok(s) => (StatusCode::OK, Json(ApiResponse::ok(s))).into_response(),
+        Err(e) => error_response(e),
+    }
+}
+
 pub async fn login_macvlan(
     State(service): State<AppState>,
     Json(req): Json<MacvlanLoginRequest>,
@@ -96,7 +113,11 @@ pub async fn logout_macvlan(
     State(service): State<AppState>,
     Json(req): Json<MacvlanLogoutRequest>,
 ) -> Response {
-    match service.logout_macvlan(&req.parent_interface).await {
+    let mac = match parse_mac(&req.mac_address) {
+        Ok(m) => m,
+        Err(e) => return error_response(e),
+    };
+    match service.logout_macvlan(&req.parent_interface, &mac).await {
         Ok(()) => (StatusCode::OK, Json(ApiResponse::<()>::ok_empty())).into_response(),
         Err(e) => error_response(e),
     }

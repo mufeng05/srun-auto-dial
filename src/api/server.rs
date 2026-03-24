@@ -23,6 +23,7 @@ pub async fn run(config: Arc<Config>, handle: Handle) -> Result<()> {
         .route("/api/interfaces", get(handlers::list_interfaces))
         .route("/api/login/local", post(handlers::login_local))
         .route("/api/logout/local", post(handlers::logout_local))
+        .route("/api/status/macvlan", post(handlers::status_macvlan))
         .route("/api/login/macvlan", post(handlers::login_macvlan))
         .route("/api/logout/macvlan", post(handlers::logout_macvlan))
         .route("/api/login/random", post(handlers::login_random))

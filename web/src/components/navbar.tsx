@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 const links = [
   { href: "/", label: "Dashboard" },
   { href: "/login", label: "Login" },
-  { href: "/random", label: "Random" },
+  { href: "/logout", label: "Logout" },
 ];
 
 export function Navbar() {
