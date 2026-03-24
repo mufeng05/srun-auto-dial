@@ -257,6 +257,7 @@ impl SrunService {
     // ---- Internal macvlan helpers ----
 
     async fn setup_macvlan(&self, parent: &str, mac: &[u8]) -> Result<()> {
+        self.cleanup_macvlan().await;
         net::create_macvlan(self.handle.clone(), parent, MACVLAN_NAME, Some(mac)).await?;
         net::set_link_up(self.handle.clone(), MACVLAN_NAME).await?;
 
