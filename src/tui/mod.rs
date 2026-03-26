@@ -71,12 +71,11 @@ async fn custom_mode(service: &SrunService) -> Result<()> {
             );
         }
         Operation::Logout => {
-            service.logout_macvlan(&link.name).await?;
+            service.logout_macvlan(&link.name, &mac).await?;
             println!("Logout successful");
         }
         Operation::Status => {
-            // For status with macvlan, use local status on parent
-            let status = service.get_status(&link.name).await?;
+            let status = service.get_status_macvlan(&link.name, &mac).await?;
             print_status(&status);
         }
     }
