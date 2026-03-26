@@ -11,8 +11,12 @@ use std::time::{SystemTime, UNIX_EPOCH};
 pub fn build_default_headers(config: &Config) -> HeaderMap {
     let mut h = HeaderMap::new();
     h.insert("Accept", HeaderValue::from_static("text/javascript, application/javascript, application/ecmascript, application/x-ecmascript, */*; q=0.01"));
-    h.insert("Accept-Encoding", HeaderValue::from_static("gzip, deflate, br, zstd"));
-    h.insert("Accept-Language", HeaderValue::from_static("en-US,en;q=0.9"));
+    // Keep encodings aligned with the current reqwest feature set.
+    h.insert("Accept-Encoding", HeaderValue::from_static("identity"));
+    h.insert(
+        "Accept-Language",
+        HeaderValue::from_static("en-US,en;q=0.9"),
+    );
     h.insert("Connection", HeaderValue::from_static("keep-alive"));
 
     if let Ok(v) = HeaderValue::from_str(config.portal_host()) {
@@ -31,10 +35,21 @@ pub fn build_default_headers(config: &Config) -> HeaderMap {
     h.insert("Sec-Fetch-Mode", HeaderValue::from_static("cors"));
     h.insert("Sec-Fetch-Site", HeaderValue::from_static("same-origin"));
     h.insert("User-Agent", HeaderValue::from_static("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0"));
-    h.insert("X-Requested-With", HeaderValue::from_static("XMLHttpRequest"));
-    h.insert("sec-ch-ua", HeaderValue::from_static("\"Microsoft Edge\";v=\"141\", \"Not?A_Brand\";v=\"8\", \"Chromium\";v=\"141\""));
+    h.insert(
+        "X-Requested-With",
+        HeaderValue::from_static("XMLHttpRequest"),
+    );
+    h.insert(
+        "sec-ch-ua",
+        HeaderValue::from_static(
+            "\"Microsoft Edge\";v=\"141\", \"Not?A_Brand\";v=\"8\", \"Chromium\";v=\"141\"",
+        ),
+    );
     h.insert("sec-ch-ua-mobile", HeaderValue::from_static("?0"));
-    h.insert("sec-ch-ua-platform", HeaderValue::from_static("\"Windows\""));
+    h.insert(
+        "sec-ch-ua-platform",
+        HeaderValue::from_static("\"Windows\""),
+    );
     h
 }
 

@@ -14,7 +14,11 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 #[derive(Parser)]
-#[command(name = "srun-auto-dial", version, about = "Srun campus network auto-dialer")]
+#[command(
+    name = "srun-auto-dial",
+    version,
+    about = "Srun campus network auto-dialer"
+)]
 struct Cli {
     /// Path to config file (default: srun.toml)
     #[arg(short, long)]
@@ -54,15 +58,12 @@ async fn main() -> Result<()> {
         2 => "srun_auto_dial=debug",
         _ => "srun_auto_dial=trace",
     };
-    tracing_subscriber::fmt()
-        .with_env_filter(filter)
-        .init();
+    tracing_subscriber::fmt().with_env_filter(filter).init();
 
     let mut config = Config::load(cli.config.as_deref())?;
 
     // Set up rtnetlink connection
-    let (connection, handle, _) =
-        rtnetlink::new_connection().map_err(SrunError::Io)?;
+    let (connection, handle, _) = rtnetlink::new_connection().map_err(SrunError::Io)?;
     tokio::spawn(connection);
 
     match cli.command {

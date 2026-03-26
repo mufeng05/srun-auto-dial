@@ -28,9 +28,10 @@ pub struct DhcpInfo {
 pub async fn dhcp_client(iface_name: &str) -> Result<DhcpInfo> {
     // Wrap blocking DHCP in a tokio blocking task with overall timeout
     let iface = iface_name.to_string();
-    tokio::time::timeout(OVERALL_TIMEOUT, tokio::task::spawn_blocking(move || {
-        dhcp_client_blocking(&iface)
-    }))
+    tokio::time::timeout(
+        OVERALL_TIMEOUT,
+        tokio::task::spawn_blocking(move || dhcp_client_blocking(&iface)),
+    )
     .await
     .map_err(|_| SrunError::Dhcp(format!("DHCP timeout after {}s", OVERALL_TIMEOUT.as_secs())))?
     .map_err(|e| SrunError::Dhcp(format!("DHCP task failed: {}", e)))?
@@ -91,12 +92,8 @@ fn dhcp_client_blocking(iface_name: &str) -> Result<DhcpInfo> {
         warn!(attempt = attempt, "no DHCP Offer received, retrying");
     }
 
-    let offer_msg = offer_msg.ok_or_else(|| {
-        SrunError::Dhcp(format!(
-            "no DHCP Offer after {} attempts",
-            MAX_RETRIES
-        ))
-    })?;
+    let offer_msg = offer_msg
+        .ok_or_else(|| SrunError::Dhcp(format!("no DHCP Offer after {} attempts", MAX_RETRIES)))?;
 
     let offered_ip = offer_msg.yiaddr();
     let server_id = match offer_msg.opts().get(OptionCode::ServerIdentifier) {
@@ -104,7 +101,7 @@ fn dhcp_client_blocking(iface_name: &str) -> Result<DhcpInfo> {
         _ => {
             return Err(SrunError::Dhcp(
                 "missing Server Identifier in Offer".to_string(),
-            ))
+            ));
         }
     };
 
@@ -143,19 +140,17 @@ fn dhcp_client_blocking(iface_name: &str) -> Result<DhcpInfo> {
         warn!(attempt = attempt, "no DHCP Ack received, retrying");
     }
 
-    let ack_msg = ack_msg.ok_or_else(|| {
-        SrunError::Dhcp(format!("no DHCP Ack after {} attempts", MAX_RETRIES))
-    })?;
+    let ack_msg = ack_msg
+        .ok_or_else(|| SrunError::Dhcp(format!("no DHCP Ack after {} attempts", MAX_RETRIES)))?;
 
     let netmask = match ack_msg.opts().get(OptionCode::SubnetMask) {
         Some(DhcpOption::SubnetMask(mask)) => *mask,
         _ => Ipv4Addr::new(255, 255, 255, 0),
     };
     let gateway = match ack_msg.opts().get(OptionCode::Router) {
-        Some(DhcpOption::Router(routers)) => routers
-            .first()
-            .cloned()
-            .unwrap_or(Ipv4Addr::UNSPECIFIED),
+        Some(DhcpOption::Router(routers)) => {
+            routers.first().cloned().unwrap_or(Ipv4Addr::UNSPECIFIED)
+        }
         _ => Ipv4Addr::UNSPECIFIED,
     };
 

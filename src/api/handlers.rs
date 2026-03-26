@@ -20,10 +20,7 @@ pub async fn health() -> impl IntoResponse {
     Json(ApiResponse::ok("ok"))
 }
 
-pub async fn status(
-    State(service): State<AppState>,
-    Query(q): Query<StatusQuery>,
-) -> Response {
+pub async fn status(State(service): State<AppState>, Query(q): Query<StatusQuery>) -> Response {
     match service.get_status(&q.interface).await {
         Ok(s) => (StatusCode::OK, Json(ApiResponse::ok(s))).into_response(),
         Err(e) => error_response(e),
@@ -112,10 +109,7 @@ pub async fn login_random(
         ));
     }
 
-    match service
-        .login_random(&req.parent_interface, req.count)
-        .await
-    {
+    match service.login_random(&req.parent_interface, req.count).await {
         Ok(results) => (StatusCode::OK, Json(ApiResponse::ok(results))).into_response(),
         Err(e) => error_response(e),
     }

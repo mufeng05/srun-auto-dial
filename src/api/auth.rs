@@ -7,11 +7,7 @@ use serde_json::json;
 /// API key authentication middleware.
 /// If `api_key` is None, all requests are allowed.
 /// If set, checks `X-API-Key` header or `Authorization: Bearer <key>`.
-pub async fn api_key_middleware(
-    req: Request,
-    next: Next,
-    api_key: Option<String>,
-) -> Response {
+pub async fn api_key_middleware(req: Request, next: Next, api_key: Option<String>) -> Response {
     let Some(expected_key) = api_key else {
         return next.run(req).await;
     };

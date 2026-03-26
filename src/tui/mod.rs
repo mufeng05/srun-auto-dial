@@ -8,11 +8,10 @@ use std::sync::Arc;
 pub async fn run(service: Arc<SrunService>) -> Result<()> {
     println!("SRUN Auto Dialer");
 
-    let mode = Select::new("Select your dial mode:", vec![
-        DialMacMode::Local,
-        DialMacMode::Custom,
-        DialMacMode::Random,
-    ])
+    let mode = Select::new(
+        "Select your dial mode:",
+        vec![DialMacMode::Local, DialMacMode::Custom, DialMacMode::Random],
+    )
     .prompt()?;
 
     match mode {
@@ -29,7 +28,12 @@ async fn local_mode(service: &SrunService) -> Result<()> {
     match operation {
         Operation::Login => {
             let creds = get_credentials()?;
-            let result = service.login_local(&link.name, creds.as_ref().map(|(u, p)| (u.as_str(), p.as_str()))).await?;
+            let result = service
+                .login_local(
+                    &link.name,
+                    creds.as_ref().map(|(u, p)| (u.as_str(), p.as_str())),
+                )
+                .await?;
             println!("Login successful, IP: {}", result.ip);
         }
         Operation::Logout => {
@@ -46,8 +50,8 @@ async fn local_mode(service: &SrunService) -> Result<()> {
 
 async fn custom_mode(service: &SrunService) -> Result<()> {
     let link = select_link(service, "Select the parent link:").await?;
-    let mac_input = Text::new("Enter the custom MAC address (e.g., AA:BB:CC:DD:EE:FF):")
-        .prompt()?;
+    let mac_input =
+        Text::new("Enter the custom MAC address (e.g., AA:BB:CC:DD:EE:FF):").prompt()?;
     let mac = parse_mac(&mac_input)?;
 
     let operation = select_operation()?;
@@ -55,7 +59,11 @@ async fn custom_mode(service: &SrunService) -> Result<()> {
         Operation::Login => {
             let creds = get_credentials()?;
             let result = service
-                .login_macvlan(&link.name, &mac, creds.as_ref().map(|(u, p)| (u.as_str(), p.as_str())))
+                .login_macvlan(
+                    &link.name,
+                    &mac,
+                    creds.as_ref().map(|(u, p)| (u.as_str(), p.as_str())),
+                )
                 .await?;
             println!(
                 "Login successful, User: {}, IP: {}",
@@ -109,10 +117,10 @@ async fn random_mode(service: &SrunService) -> Result<()> {
 // ---- UI helpers ----
 
 fn get_credentials() -> Result<Option<(String, String)>> {
-    let mode = Select::new("Select how to input user information:", vec![
-        UserMode::Input,
-        UserMode::Read,
-    ])
+    let mode = Select::new(
+        "Select how to input user information:",
+        vec![UserMode::Input, UserMode::Read],
+    )
     .prompt()?;
 
     match mode {
@@ -135,11 +143,10 @@ async fn select_link(service: &SrunService, msg: &str) -> Result<Link> {
 }
 
 fn select_operation() -> Result<Operation> {
-    let op = Select::new("Select operation:", vec![
-        Operation::Login,
-        Operation::Logout,
-        Operation::Status,
-    ])
+    let op = Select::new(
+        "Select operation:",
+        vec![Operation::Login, Operation::Logout, Operation::Status],
+    )
     .prompt()?;
     Ok(op)
 }
