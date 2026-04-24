@@ -1,5 +1,4 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:3000";
-const API_KEY = process.env.NEXT_PUBLIC_API_KEY || "";
+import { getRuntimeEnv } from "./env";
 
 export interface ApiResponse<T> {
   success: boolean;
@@ -39,15 +38,16 @@ async function request<T>(
   path: string,
   options?: RequestInit
 ): Promise<ApiResponse<T>> {
+  const { apiUrl, apiKey } = getRuntimeEnv();
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...(options?.headers as Record<string, string>),
   };
-  if (API_KEY) {
-    headers["X-API-Key"] = API_KEY;
+  if (apiKey) {
+    headers["X-API-Key"] = apiKey;
   }
 
-  const res = await fetch(`${API_BASE}${path}`, {
+  const res = await fetch(`${apiUrl}${path}`, {
     ...options,
     headers,
   });

@@ -44,10 +44,12 @@ bun run dev
 
 访问 `http://localhost:3000` 打开管理界面。需要后端 API 服务器已在运行。
 
-通过环境变量配置 API 地址：
+通过环境变量配置 API 地址（运行时读取，无需重新构建）：
 
 ```bash
-NEXT_PUBLIC_API_URL=http://192.168.1.1:3000 bun run dev
+API_URL=http://192.168.1.1:3000 bun run dev
+# 可选：若后端启用了 api_key
+API_URL=http://192.168.1.1:3000 API_KEY=your-secret-key bun run dev
 ```
 
 ### Docker
@@ -64,16 +66,19 @@ docker run --rm --net=host --cap-add=NET_ADMIN --cap-add=NET_RAW \
 
 **Web 前端：**
 
+运行时通过 `-e` 传入后端 API 地址，同一镜像可用于任意部署环境：
+
 ```bash
 docker run --rm -p 3001:3000 \
+  -e API_URL=http://192.168.1.1:3000 \
+  -e API_KEY=your-secret-key \
   ghcr.io/<owner>/srun-auto-dial-web
 ```
 
-构建时可通过 `--build-arg` 指定后端 API 地址：
-
-```bash
-docker build --build-arg NEXT_PUBLIC_API_URL=http://192.168.1.1:3000 -t srun-web ./web
-```
+| 环境变量 | 说明 | 默认值 |
+|----------|------|--------|
+| `API_URL` | 后端 API 地址 | `http://127.0.0.1:3000` |
+| `API_KEY` | 后端 API 认证密钥（可选） | 空 |
 
 ## 配置
 
