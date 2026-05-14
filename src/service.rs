@@ -88,11 +88,12 @@ impl SrunService {
         &self,
         interface: &str,
         credentials: Option<(&str, &str)>,
+        userinfo_path: Option<&str>,
     ) -> Result<LoginResult> {
         let (username, password) = match credentials {
             Some((u, p)) => (u.to_string(), p.to_string()),
             None => {
-                let user = self.random_user().await?;
+                let user = self.random_user(userinfo_path).await?;
                 (user.username, user.password)
             }
         };
@@ -152,11 +153,12 @@ impl SrunService {
         parent: &str,
         mac: &[u8],
         credentials: Option<(&str, &str)>,
+        userinfo_path: Option<&str>,
     ) -> Result<LoginResult> {
         let (username, password) = match credentials {
             Some((u, p)) => (u.to_string(), p.to_string()),
             None => {
-                let user = self.random_user().await?;
+                let user = self.random_user(userinfo_path).await?;
                 (user.username, user.password)
             }
         };
@@ -196,12 +198,17 @@ impl SrunService {
         result
     }
 
-    /// Batch login with random MACs, reading users from userinfo.json.
+    /// Batch login with random MACs, reading users from the chosen userinfo file.
     /// Each account is used at most 3 times to avoid kicking off previous sessions.
-    pub async fn login_random(&self, parent: &str, count: u32) -> Result<Vec<RandomLoginResult>> {
+    pub async fn login_random(
+        &self,
+        parent: &str,
+        count: u32,
+        userinfo_path: Option<&str>,
+    ) -> Result<Vec<RandomLoginResult>> {
         const MAX_LOGIN_PER_USER: u32 = 3;
 
-        let users = self.load_users().await?;
+        let users = self.load_users(userinfo_path).await?;
         let mut usage: HashMap<String, u32> = HashMap::new();
         let mut results = Vec::with_capacity(count as usize);
 
@@ -225,7 +232,7 @@ impl SrunService {
             let mac_str = format_mac(&mac);
             let creds = Some((user.username.as_str(), user.password.as_str()));
 
-            let result = self.login_macvlan(parent, &mac, creds).await;
+            let result = self.login_macvlan(parent, &mac, creds, None).await;
 
             results.push(RandomLoginResult {
                 mac: mac_str,
@@ -236,26 +243,24 @@ impl SrunService {
         Ok(results)
     }
 
-    /// Load users from the configured userinfo file.
-    pub async fn load_users(&self) -> Result<Vec<User>> {
-        let path = self
-            .config
-            .userinfo_path
-            .as_deref()
+    /// Load users from the given path, or fall back to the configured userinfo file.
+    pub async fn load_users(&self, userinfo_path: Option<&str>) -> Result<Vec<User>> {
+        let path = userinfo_path
+            .or(self.config.userinfo_path.as_deref())
             .unwrap_or("userinfo.json");
         let contents = tokio::fs::read_to_string(path)
             .await
             .map_err(|e| SrunError::Config(format!("failed to read {}: {}", path, e)))?;
         let users: Vec<User> = serde_json::from_str(&contents)?;
         if users.is_empty() {
-            return Err(SrunError::Config("userinfo.json is empty".to_string()));
+            return Err(SrunError::Config(format!("{} is empty", path)));
         }
         Ok(users)
     }
 
-    /// Pick a random user from userinfo.json.
-    async fn random_user(&self) -> Result<User> {
-        let users = self.load_users().await?;
+    /// Pick a random user from the chosen userinfo file.
+    async fn random_user(&self, userinfo_path: Option<&str>) -> Result<User> {
+        let users = self.load_users(userinfo_path).await?;
         Ok(users[rng().random_range(0..users.len())].clone())
     }
 

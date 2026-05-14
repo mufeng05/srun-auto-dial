@@ -76,12 +76,18 @@ export async function getStatusMacvlan(parentInterface: string, macAddress: stri
   });
 }
 
-export async function loginLocal(iface: string, username?: string, password?: string) {
+export async function loginLocal(
+  iface: string,
+  username?: string,
+  password?: string,
+  userinfoPath?: string,
+) {
   return request<LoginResult>("/api/login/local", {
     method: "POST",
     body: JSON.stringify({
       interface: iface,
       ...(username && password ? { username, password } : {}),
+      ...(userinfoPath ? { userinfo_path: userinfoPath } : {}),
     }),
   });
 }
@@ -97,7 +103,8 @@ export async function loginMacvlan(
   parentInterface: string,
   macAddress: string,
   username?: string,
-  password?: string
+  password?: string,
+  userinfoPath?: string,
 ) {
   return request<LoginResult>("/api/login/macvlan", {
     method: "POST",
@@ -105,6 +112,7 @@ export async function loginMacvlan(
       parent_interface: parentInterface,
       mac_address: macAddress,
       ...(username && password ? { username, password } : {}),
+      ...(userinfoPath ? { userinfo_path: userinfoPath } : {}),
     }),
   });
 }
@@ -116,9 +124,17 @@ export async function logoutMacvlan(parentInterface: string, macAddress: string)
   });
 }
 
-export async function loginRandom(parentInterface: string, count: number) {
+export async function loginRandom(
+  parentInterface: string,
+  count: number,
+  userinfoPath?: string,
+) {
   return request<RandomLoginResult[]>("/api/login/random", {
     method: "POST",
-    body: JSON.stringify({ parent_interface: parentInterface, count }),
+    body: JSON.stringify({
+      parent_interface: parentInterface,
+      count,
+      ...(userinfoPath ? { userinfo_path: userinfoPath } : {}),
+    }),
   });
 }

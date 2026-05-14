@@ -51,7 +51,10 @@ pub async fn login_local(
         (Some(u), Some(p)) => Some((u.as_str(), p.as_str())),
         _ => None,
     };
-    match service.login_local(&req.interface, creds).await {
+    match service
+        .login_local(&req.interface, creds, req.userinfo_path.as_deref())
+        .await
+    {
         Ok(result) => (StatusCode::OK, Json(ApiResponse::ok(result))).into_response(),
         Err(e) => error_response(e),
     }
@@ -98,7 +101,12 @@ pub async fn login_macvlan(
         _ => None,
     };
     match service
-        .login_macvlan(&req.parent_interface, &mac, creds)
+        .login_macvlan(
+            &req.parent_interface,
+            &mac,
+            creds,
+            req.userinfo_path.as_deref(),
+        )
         .await
     {
         Ok(result) => (StatusCode::OK, Json(ApiResponse::ok(result))).into_response(),
@@ -130,7 +138,14 @@ pub async fn login_random(
         ));
     }
 
-    match service.login_random(&req.parent_interface, req.count).await {
+    match service
+        .login_random(
+            &req.parent_interface,
+            req.count,
+            req.userinfo_path.as_deref(),
+        )
+        .await
+    {
         Ok(results) => (StatusCode::OK, Json(ApiResponse::ok(results))).into_response(),
         Err(e) => error_response(e),
     }

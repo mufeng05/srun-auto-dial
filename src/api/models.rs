@@ -7,6 +7,9 @@ pub struct LocalLoginRequest {
     pub interface: String,
     pub username: Option<String>,
     pub password: Option<String>,
+    /// Path to a JSON file with [{ "username", "password" }] entries.
+    /// Used only when `username`/`password` are not provided.
+    pub userinfo_path: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -20,6 +23,9 @@ pub struct MacvlanLoginRequest {
     pub mac_address: String,
     pub username: Option<String>,
     pub password: Option<String>,
+    /// Path to a JSON file with [{ "username", "password" }] entries.
+    /// Used only when `username`/`password` are not provided.
+    pub userinfo_path: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -32,6 +38,8 @@ pub struct MacvlanLogoutRequest {
 pub struct RandomLoginRequest {
     pub parent_interface: String,
     pub count: u32,
+    /// Path to a JSON file with [{ "username", "password" }] entries.
+    pub userinfo_path: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

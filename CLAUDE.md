@@ -87,7 +87,13 @@ API key authentication is optional — configured via `api_key` in `srun.toml`.
 
 ## Configuration
 
-See `srun.toml.example`. User credentials in `userinfo.json`:
+See `srun.toml.example`. User credentials in `userinfo.json` (default), but the path is overridable per call:
+
 ```json
 [{"username": "user", "password": "pass"}]
 ```
+
+Multiple JSON files are supported — each ISP/line keeps its own and they must not be mixed. The default path comes from `userinfo_path` in `srun.toml`, falling back to `userinfo.json`. Per-call overrides:
+- TUI: prompts to pick a `*.json` from the cwd (or enter a custom path) on every credential-from-file selection and on random mode.
+- REST API: `/api/login/{local,macvlan,random}` accept an optional `userinfo_path` field.
+- Web: `/login` shows a path input under the "Use credentials from a JSON file" toggle and in random mode.

@@ -5,6 +5,8 @@ use inquire::{Password, PasswordDisplayMode, Select, Text};
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
+const CUSTOM_PATH_LABEL: &str = "Enter a custom path...";
+
 pub async fn run(service: Arc<SrunService>) -> Result<()> {
     println!("SRUN Auto Dialer");
 
@@ -27,11 +29,12 @@ async fn local_mode(service: &SrunService) -> Result<()> {
 
     match operation {
         Operation::Login => {
-            let creds = get_credentials()?;
+            let (creds, userinfo_path) = get_credentials()?;
             let result = service
                 .login_local(
                     &link.name,
                     creds.as_ref().map(|(u, p)| (u.as_str(), p.as_str())),
+                    userinfo_path.as_deref(),
                 )
                 .await?;
             println!("Login successful, IP: {}", result.ip);
@@ -57,12 +60,13 @@ async fn custom_mode(service: &SrunService) -> Result<()> {
     let operation = select_operation()?;
     match operation {
         Operation::Login => {
-            let creds = get_credentials()?;
+            let (creds, userinfo_path) = get_credentials()?;
             let result = service
                 .login_macvlan(
                     &link.name,
                     &mac,
                     creds.as_ref().map(|(u, p)| (u.as_str(), p.as_str())),
+                    userinfo_path.as_deref(),
                 )
                 .await?;
             println!(
@@ -90,7 +94,11 @@ async fn random_mode(service: &SrunService) -> Result<()> {
         .parse()
         .map_err(|_| crate::error::SrunError::Config("invalid number".to_string()))?;
 
-    let results = service.login_random(&link.name, count).await?;
+    let userinfo_path = select_userinfo_path("Select the user-info JSON to read:")?;
+
+    let results = service
+        .login_random(&link.name, count, Some(&userinfo_path))
+        .await?;
 
     println!("\n--- Results ---");
     for r in &results {
@@ -115,7 +123,9 @@ async fn random_mode(service: &SrunService) -> Result<()> {
 
 // ---- UI helpers ----
 
-fn get_credentials() -> Result<Option<(String, String)>> {
+/// Returns (manual credentials, userinfo file path).
+/// At most one of the two is Some.
+fn get_credentials() -> Result<(Option<(String, String)>, Option<String>)> {
     let mode = Select::new(
         "Select how to input user information:",
         vec![UserMode::Input, UserMode::Read],
@@ -129,9 +139,42 @@ fn get_credentials() -> Result<Option<(String, String)>> {
                 .with_display_mode(PasswordDisplayMode::Masked)
                 .without_confirmation()
                 .prompt()?;
-            Ok(Some((username, password)))
+            Ok((Some((username, password)), None))
         }
-        UserMode::Read => Ok(None),
+        UserMode::Read => {
+            let path = select_userinfo_path("Select the user-info JSON to read:")?;
+            Ok((None, Some(path)))
+        }
+    }
+}
+
+/// Let the user pick a `*.json` file from the current directory, or enter a custom path.
+fn select_userinfo_path(prompt: &str) -> Result<String> {
+    let mut options: Vec<String> = std::fs::read_dir(".")
+        .ok()
+        .into_iter()
+        .flatten()
+        .filter_map(|entry| entry.ok())
+        .filter(|entry| {
+            entry
+                .file_type()
+                .map(|t| t.is_file())
+                .unwrap_or(false)
+        })
+        .filter_map(|entry| entry.file_name().into_string().ok())
+        .filter(|name| name.to_ascii_lowercase().ends_with(".json"))
+        .collect();
+    options.sort();
+    options.push(CUSTOM_PATH_LABEL.to_string());
+
+    let selected = Select::new(prompt, options).prompt()?;
+    if selected == CUSTOM_PATH_LABEL {
+        let path = Text::new("Enter the JSON file path:")
+            .with_default("userinfo.json")
+            .prompt()?;
+        Ok(path)
+    } else {
+        Ok(selected)
     }
 }
 
@@ -174,7 +217,7 @@ impl Display for DialMacMode {
             Self::Custom => write!(f, "Using a custom MAC address"),
             Self::Random => write!(
                 f,
-                "Using random MAC addresses (reads users from userinfo.json)"
+                "Using random MAC addresses (reads users from a JSON file)"
             ),
         }
     }
@@ -207,7 +250,7 @@ impl Display for UserMode {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Input => write!(f, "Enter username and password manually"),
-            Self::Read => write!(f, "Read from userinfo.json"),
+            Self::Read => write!(f, "Read from a JSON file"),
         }
     }
 }

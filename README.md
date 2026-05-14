@@ -95,7 +95,7 @@ port = 3000
 # api_key = "your-secret-key"
 ```
 
-用户凭据存放在 `userinfo.json`：
+用户凭据存放在一个 JSON 文件中（默认 `userinfo.json`，可通过 `userinfo_path` 或调用时指定其他路径，例如不同线路各自一份）：
 
 ```json
 [
@@ -105,6 +105,8 @@ port = 3000
     }
 ]
 ```
+
+> 多条线路对应多份 JSON 时，**不要混用**：TUI 在每次登录时让你挑选；REST API 接收 `userinfo_path` 字段；Web 界面在勾选"读取 JSON"或随机模式下提供路径输入框。
 
 可通过 `-c` 参数指定配置文件路径：
 
@@ -135,7 +137,9 @@ srun-auto-dial -c /path/to/srun.toml tui
 | POST | `/api/logout/macvlan` | macvlan 登出 |
 | POST | `/api/login/random` | 随机 MAC 批量登录 |
 
-> `login/local` 和 `login/macvlan` 的 `username`/`password` 字段为可选。省略时自动从 `userinfo.json` 中随机选取一组凭据。
+> `login/local` 和 `login/macvlan` 的 `username`/`password` 字段为可选。省略时自动从 JSON 文件中随机选取一组凭据。
+>
+> 三个登录接口均支持可选的 `userinfo_path` 字段，用来指定要读取的 JSON 文件（不同线路一份）；省略时回落到配置文件中的 `userinfo_path`，再回落到 `userinfo.json`。
 >
 > `login/random` 模式下每个账号最多使用 3 次，避免顶掉已有登录。当所有账号用满时提前停止。
 
@@ -152,6 +156,11 @@ curl -X POST http://127.0.0.1:3000/api/login/local \
   -H "Content-Type: application/json" \
   -d '{"interface":"eth0"}'
 
+# 登录（指定线路 A 对应的 JSON 文件）
+curl -X POST http://127.0.0.1:3000/api/login/local \
+  -H "Content-Type: application/json" \
+  -d '{"interface":"eth0","userinfo_path":"line-a.json"}'
+
 # 查询状态
 curl "http://127.0.0.1:3000/api/status?interface=eth0"
 
@@ -164,6 +173,11 @@ curl -X POST http://127.0.0.1:3000/api/login/macvlan \
 curl -X POST http://127.0.0.1:3000/api/login/random \
   -H "Content-Type: application/json" \
   -d '{"parent_interface":"eth0","count":5}'
+
+# 随机 MAC 批量登录（指定 JSON 文件）
+curl -X POST http://127.0.0.1:3000/api/login/random \
+  -H "Content-Type: application/json" \
+  -d '{"parent_interface":"eth0","count":5,"userinfo_path":"line-b.json"}'
 ```
 
 ### API 认证

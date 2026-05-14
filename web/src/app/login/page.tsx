@@ -22,6 +22,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [macAddress, setMacAddress] = useState("");
   const [useFile, setUseFile] = useState(false);
+  const [userinfoPath, setUserinfoPath] = useState("userinfo.json");
   const [count, setCount] = useState("1");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<LoginResult | null>(null);
@@ -42,7 +43,8 @@ export default function LoginPage() {
         setLoading(false);
         return;
       }
-      const res = await loginRandom(iface, n);
+      const path = userinfoPath.trim() || undefined;
+      const res = await loginRandom(iface, n, path);
       setLoading(false);
       if (res.success && res.data) {
         setRandomResults(res.data);
@@ -54,11 +56,12 @@ export default function LoginPage() {
 
     const u = useFile ? undefined : username;
     const p = useFile ? undefined : password;
+    const path = useFile ? userinfoPath.trim() || undefined : undefined;
 
     const res =
       mode === "local"
-        ? await loginLocal(iface, u, p)
-        : await loginMacvlan(iface, macAddress, u, p);
+        ? await loginLocal(iface, u, p, path)
+        : await loginMacvlan(iface, macAddress, u, p, path);
 
     setLoading(false);
     if (res.success && res.data) {
@@ -117,24 +120,30 @@ export default function LoginPage() {
         )}
 
         {mode === "random" ? (
-          <div className="flex flex-col gap-2">
-            <label className="text-sm text-neutral-400">Count (1-100)</label>
-            <input
-              type="number"
-              min={1}
-              max={100}
-              value={count}
-              onChange={(e) => setCount(e.target.value)}
-              className="rounded-lg border border-neutral-800 bg-neutral-900 px-4 py-2.5 text-sm text-white placeholder-neutral-600 outline-none transition-colors focus:border-neutral-600 w-32 font-[family-name:var(--font-geist-mono)]"
+          <>
+            <div className="flex flex-col gap-2">
+              <label className="text-sm text-neutral-400">Count (1-100)</label>
+              <input
+                type="number"
+                min={1}
+                max={100}
+                value={count}
+                onChange={(e) => setCount(e.target.value)}
+                className="rounded-lg border border-neutral-800 bg-neutral-900 px-4 py-2.5 text-sm text-white placeholder-neutral-600 outline-none transition-colors focus:border-neutral-600 w-32 font-[family-name:var(--font-geist-mono)]"
+              />
+            </div>
+            <InputField
+              label="User-info JSON path"
+              placeholder="userinfo.json"
+              value={userinfoPath}
+              onChange={setUserinfoPath}
+              mono
             />
             <p className="text-xs text-neutral-500">
-              Credentials are read from{" "}
-              <code className="font-[family-name:var(--font-geist-mono)] text-neutral-400">
-                userinfo.json
-              </code>{" "}
-              on the server.
+              Path is resolved on the server. Each line has its own JSON — do
+              not mix them.
             </p>
-          </div>
+          </>
         ) : (
           <>
             {/* Credential source toggle */}
@@ -149,14 +158,19 @@ export default function LoginPage() {
                 <div className="h-5 w-9 rounded-full bg-neutral-700 after:absolute after:left-[2px] after:top-[2px] after:h-4 after:w-4 after:rounded-full after:bg-white after:transition-all peer-checked:bg-white peer-checked:after:translate-x-full peer-checked:after:bg-black" />
               </label>
               <span className="text-sm text-neutral-400">
-                Use credentials from{" "}
-                <code className="font-[family-name:var(--font-geist-mono)] text-neutral-300">
-                  userinfo.json
-                </code>
+                Use credentials from a JSON file
               </span>
             </div>
 
-            {!useFile && (
+            {useFile ? (
+              <InputField
+                label="User-info JSON path"
+                placeholder="userinfo.json"
+                value={userinfoPath}
+                onChange={setUserinfoPath}
+                mono
+              />
+            ) : (
               <>
                 <InputField
                   label="Username"
