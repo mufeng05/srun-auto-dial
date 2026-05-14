@@ -2,10 +2,17 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { loginLocal, loginMacvlan, type LoginResult } from "@/lib/api";
+import {
+  loginLocal,
+  loginMacvlan,
+  loginRandom,
+  type LoginResult,
+  type RandomLoginResult,
+} from "@/lib/api";
 import { InterfaceSelect } from "@/components/interface-select";
+import { ResultTable } from "@/components/result-table";
 
-type Mode = "local" | "macvlan";
+type Mode = "local" | "macvlan" | "random";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -15,8 +22,10 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [macAddress, setMacAddress] = useState("");
   const [useFile, setUseFile] = useState(false);
+  const [count, setCount] = useState("1");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<LoginResult | null>(null);
+  const [randomResults, setRandomResults] = useState<RandomLoginResult[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -24,6 +33,24 @@ export default function LoginPage() {
     setLoading(true);
     setError(null);
     setResult(null);
+    setRandomResults([]);
+
+    if (mode === "random") {
+      const n = parseInt(count, 10);
+      if (isNaN(n) || n < 1 || n > 100) {
+        setError("Count must be between 1 and 100");
+        setLoading(false);
+        return;
+      }
+      const res = await loginRandom(iface, n);
+      setLoading(false);
+      if (res.success && res.data) {
+        setRandomResults(res.data);
+      } else {
+        setError(res.error || "Random login failed");
+      }
+      return;
+    }
 
     const u = useFile ? undefined : username;
     const p = useFile ? undefined : password;
@@ -52,17 +79,22 @@ export default function LoginPage() {
 
       {/* Mode toggle */}
       <div className="flex gap-1 rounded-lg border border-neutral-800 bg-neutral-900/50 p-1 w-fit">
-        {(["local", "macvlan"] as Mode[]).map((m) => (
+        {(["local", "macvlan", "random"] as Mode[]).map((m) => (
           <button
             key={m}
-            onClick={() => setMode(m)}
+            onClick={() => {
+              setMode(m);
+              setResult(null);
+              setRandomResults([]);
+              setError(null);
+            }}
             className={`rounded-md px-4 py-2 text-sm font-medium transition-colors ${
               mode === m
                 ? "bg-neutral-800 text-white"
                 : "text-neutral-400 hover:text-white"
             }`}
           >
-            {m === "local" ? "Local" : "Macvlan"}
+            {m === "local" ? "Local" : m === "macvlan" ? "Macvlan" : "Random"}
           </button>
         ))}
       </div>
@@ -84,47 +116,83 @@ export default function LoginPage() {
           />
         )}
 
-        {/* Credential source toggle */}
-        <div className="flex items-center gap-3">
-          <label className="relative inline-flex cursor-pointer items-center">
+        {mode === "random" ? (
+          <div className="flex flex-col gap-2">
+            <label className="text-sm text-neutral-400">Count (1-100)</label>
             <input
-              type="checkbox"
-              checked={useFile}
-              onChange={(e) => setUseFile(e.target.checked)}
-              className="peer sr-only"
+              type="number"
+              min={1}
+              max={100}
+              value={count}
+              onChange={(e) => setCount(e.target.value)}
+              className="rounded-lg border border-neutral-800 bg-neutral-900 px-4 py-2.5 text-sm text-white placeholder-neutral-600 outline-none transition-colors focus:border-neutral-600 w-32 font-[family-name:var(--font-geist-mono)]"
             />
-            <div className="h-5 w-9 rounded-full bg-neutral-700 after:absolute after:left-[2px] after:top-[2px] after:h-4 after:w-4 after:rounded-full after:bg-white after:transition-all peer-checked:bg-white peer-checked:after:translate-x-full peer-checked:after:bg-black" />
-          </label>
-          <span className="text-sm text-neutral-400">
-            Use credentials from <code className="font-[family-name:var(--font-geist-mono)] text-neutral-300">userinfo.json</code>
-          </span>
-        </div>
-
-        {!useFile && (
+            <p className="text-xs text-neutral-500">
+              Credentials are read from{" "}
+              <code className="font-[family-name:var(--font-geist-mono)] text-neutral-400">
+                userinfo.json
+              </code>{" "}
+              on the server.
+            </p>
+          </div>
+        ) : (
           <>
-            <InputField
-              label="Username"
-              placeholder="Enter username"
-              value={username}
-              onChange={setUsername}
-            />
+            {/* Credential source toggle */}
+            <div className="flex items-center gap-3">
+              <label className="relative inline-flex cursor-pointer items-center">
+                <input
+                  type="checkbox"
+                  checked={useFile}
+                  onChange={(e) => setUseFile(e.target.checked)}
+                  className="peer sr-only"
+                />
+                <div className="h-5 w-9 rounded-full bg-neutral-700 after:absolute after:left-[2px] after:top-[2px] after:h-4 after:w-4 after:rounded-full after:bg-white after:transition-all peer-checked:bg-white peer-checked:after:translate-x-full peer-checked:after:bg-black" />
+              </label>
+              <span className="text-sm text-neutral-400">
+                Use credentials from{" "}
+                <code className="font-[family-name:var(--font-geist-mono)] text-neutral-300">
+                  userinfo.json
+                </code>
+              </span>
+            </div>
 
-            <InputField
-              label="Password"
-              placeholder="Enter password"
-              value={password}
-              onChange={setPassword}
-              type="password"
-            />
+            {!useFile && (
+              <>
+                <InputField
+                  label="Username"
+                  placeholder="Enter username"
+                  value={username}
+                  onChange={setUsername}
+                />
+                <InputField
+                  label="Password"
+                  placeholder="Enter password"
+                  value={password}
+                  onChange={setPassword}
+                  type="password"
+                />
+              </>
+            )}
           </>
         )}
 
         <button
           type="submit"
-          disabled={loading || !iface || (!useFile && (!username || !password))}
+          disabled={
+            loading ||
+            !iface ||
+            (mode !== "random" && !useFile && (!username || !password)) ||
+            (mode === "macvlan" && !macAddress)
+          }
           className="rounded-lg bg-white px-5 py-2.5 text-sm font-medium text-black transition-colors hover:bg-neutral-200 disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          {loading ? "Logging in..." : "Login"}
+          {loading
+            ? mode === "random"
+              ? "Running..."
+              : "Logging in..."
+            : mode === "random"
+              ? "Start"
+              : "Login"}
         </button>
       </form>
 
@@ -132,12 +200,18 @@ export default function LoginPage() {
         <div className="rounded-xl border border-green-900/50 bg-green-950/20 p-6 space-y-2">
           <p className="text-sm font-medium text-green-400">Login successful</p>
           <p className="text-sm text-neutral-300">
-            IP: <span className="font-[family-name:var(--font-geist-mono)]">{result.ip}</span>
+            IP:{" "}
+            <span className="font-[family-name:var(--font-geist-mono)]">
+              {result.ip}
+            </span>
           </p>
           <p className="text-sm text-neutral-300">User: {result.username}</p>
           {result.mac && (
             <p className="text-sm text-neutral-300">
-              MAC: <span className="font-[family-name:var(--font-geist-mono)]">{result.mac}</span>
+              MAC:{" "}
+              <span className="font-[family-name:var(--font-geist-mono)]">
+                {result.mac}
+              </span>
             </p>
           )}
           <button
@@ -154,6 +228,8 @@ export default function LoginPage() {
           <p className="text-sm text-red-400">{error}</p>
         </div>
       )}
+
+      <ResultTable results={randomResults} />
     </div>
   );
 }

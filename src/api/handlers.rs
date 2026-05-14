@@ -20,10 +20,7 @@ pub async fn health() -> impl IntoResponse {
     Json(ApiResponse::ok("ok"))
 }
 
-pub async fn status(
-    State(service): State<AppState>,
-    Query(q): Query<StatusQuery>,
-) -> Response {
+pub async fn status(State(service): State<AppState>, Query(q): Query<StatusQuery>) -> Response {
     match service.get_status(&q.interface).await {
         Ok(s) => (StatusCode::OK, Json(ApiResponse::ok(s))).into_response(),
         Err(e) => error_response(e),
@@ -70,6 +67,23 @@ pub async fn logout_local(
     }
 }
 
+pub async fn status_macvlan(
+    State(service): State<AppState>,
+    Json(req): Json<MacvlanStatusRequest>,
+) -> Response {
+    let mac = match parse_mac(&req.mac_address) {
+        Ok(m) => m,
+        Err(e) => return error_response(e),
+    };
+    match service
+        .get_status_macvlan(&req.parent_interface, &mac)
+        .await
+    {
+        Ok(s) => (StatusCode::OK, Json(ApiResponse::ok(s))).into_response(),
+        Err(e) => error_response(e),
+    }
+}
+
 pub async fn login_macvlan(
     State(service): State<AppState>,
     Json(req): Json<MacvlanLoginRequest>,
@@ -96,7 +110,11 @@ pub async fn logout_macvlan(
     State(service): State<AppState>,
     Json(req): Json<MacvlanLogoutRequest>,
 ) -> Response {
-    match service.logout_macvlan(&req.parent_interface).await {
+    let mac = match parse_mac(&req.mac_address) {
+        Ok(m) => m,
+        Err(e) => return error_response(e),
+    };
+    match service.logout_macvlan(&req.parent_interface, &mac).await {
         Ok(()) => (StatusCode::OK, Json(ApiResponse::<()>::ok_empty())).into_response(),
         Err(e) => error_response(e),
     }
@@ -112,10 +130,7 @@ pub async fn login_random(
         ));
     }
 
-    match service
-        .login_random(&req.parent_interface, req.count)
-        .await
-    {
+    match service.login_random(&req.parent_interface, req.count).await {
         Ok(results) => (StatusCode::OK, Json(ApiResponse::ok(results))).into_response(),
         Err(e) => error_response(e),
     }

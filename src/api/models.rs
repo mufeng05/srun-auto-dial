@@ -25,6 +25,7 @@ pub struct MacvlanLoginRequest {
 #[derive(Debug, Deserialize)]
 pub struct MacvlanLogoutRequest {
     pub parent_interface: String,
+    pub mac_address: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -36,6 +37,12 @@ pub struct RandomLoginRequest {
 #[derive(Debug, Deserialize)]
 pub struct StatusQuery {
     pub interface: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct MacvlanStatusRequest {
+    pub parent_interface: String,
+    pub mac_address: String,
 }
 
 // ---- Responses ----

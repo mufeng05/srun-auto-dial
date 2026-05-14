@@ -3,11 +3,11 @@ use crate::error::{Result, SrunError};
 use crate::net::{self, DhcpInfo, Link};
 use crate::srun::{SrunClient, UserInfo, utils as srun_utils};
 use pnet::ipnetwork::{IpNetwork, Ipv4Network};
-use std::collections::HashMap;
 use rand::{Rng, rng};
 use reqwest::Client;
 use rtnetlink::Handle;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::net::Ipv4Addr;
 use std::sync::Arc;
 use tracing::{debug, info};
@@ -109,7 +109,14 @@ impl SrunService {
             .await?;
 
         self.srun_client
-            .login(&client, &callback, &username, &password, userinfo.ip, &challenge)
+            .login(
+                &client,
+                &callback,
+                &username,
+                &password,
+                userinfo.ip,
+                &challenge,
+            )
             .await?;
 
         info!(username = %username, ip = %userinfo.ip, "login successful (local)");
@@ -159,23 +166,29 @@ impl SrunService {
         self.setup_macvlan(parent, mac).await?;
 
         // Run login, ensuring cleanup
-        let result = self
-            .do_macvlan_login(&username, &password, &mac_str)
-            .await;
+        let result = self.do_macvlan_login(&username, &password, &mac_str).await;
 
         // Always cleanup
         self.cleanup_macvlan().await;
 
         match &result {
-            Ok(r) => info!(username = %r.username, ip = %r.ip, mac = %mac_str, "login successful (macvlan)"),
+            Ok(r) => {
+                info!(username = %r.username, ip = %r.ip, mac = %mac_str, "login successful (macvlan)")
+            }
             Err(e) => debug!(mac = %mac_str, error = %e, "login failed (macvlan)"),
         }
         result
     }
 
-    pub async fn logout_macvlan(&self, parent: &str) -> Result<()> {
-        let random_mac = generate_mac_address();
-        self.setup_macvlan(parent, &random_mac).await?;
+    pub async fn get_status_macvlan(&self, parent: &str, mac: &[u8]) -> Result<StatusResult> {
+        self.setup_macvlan(parent, mac).await?;
+        let result = self.get_status(MACVLAN_NAME).await;
+        self.cleanup_macvlan().await;
+        result
+    }
+
+    pub async fn logout_macvlan(&self, parent: &str, mac: &[u8]) -> Result<()> {
+        self.setup_macvlan(parent, mac).await?;
 
         let result = self.do_macvlan_logout().await;
 
@@ -185,11 +198,7 @@ impl SrunService {
 
     /// Batch login with random MACs, reading users from userinfo.json.
     /// Each account is used at most 3 times to avoid kicking off previous sessions.
-    pub async fn login_random(
-        &self,
-        parent: &str,
-        count: u32,
-    ) -> Result<Vec<RandomLoginResult>> {
+    pub async fn login_random(&self, parent: &str, count: u32) -> Result<Vec<RandomLoginResult>> {
         const MAX_LOGIN_PER_USER: u32 = 3;
 
         let users = self.load_users().await?;
@@ -203,7 +212,9 @@ impl SrunService {
                 .collect();
 
             if available.is_empty() {
-                tracing::warn!("all users have reached max login count ({MAX_LOGIN_PER_USER}), stopping");
+                tracing::warn!(
+                    "all users have reached max login count ({MAX_LOGIN_PER_USER}), stopping"
+                );
                 break;
             }
 
@@ -251,27 +262,43 @@ impl SrunService {
     // ---- Internal macvlan helpers ----
 
     async fn setup_macvlan(&self, parent: &str, mac: &[u8]) -> Result<()> {
+        self.cleanup_macvlan().await;
         net::create_macvlan(self.handle.clone(), parent, MACVLAN_NAME, Some(mac)).await?;
-        net::set_link_up(self.handle.clone(), MACVLAN_NAME).await?;
+        let result = async {
+            net::set_link_up(self.handle.clone(), MACVLAN_NAME).await?;
 
-        let dhcp_info: DhcpInfo = net::dhcp_client(MACVLAN_NAME).await?;
+            let dhcp_info: DhcpInfo = net::dhcp_client(MACVLAN_NAME).await?;
 
-        let prefix = dhcp_info
-            .netmask
-            .octets()
-            .iter()
-            .fold(0u8, |acc, &b| acc + b.count_ones() as u8);
-        let ip_net = Ipv4Network::new(dhcp_info.ip, prefix)
-            .map_err(|e| SrunError::Dhcp(format!("invalid IP/prefix: {}", e)))?;
+            let prefix = dhcp_info
+                .netmask
+                .octets()
+                .iter()
+                .fold(0u8, |acc, &b| acc + b.count_ones() as u8);
+            let ip_net = Ipv4Network::new(dhcp_info.ip, prefix)
+                .map_err(|e| SrunError::Dhcp(format!("invalid IP/prefix: {}", e)))?;
 
-        net::add_address(self.handle.clone(), MACVLAN_NAME, IpNetwork::V4(ip_net)).await?;
-        net::add_default_route(
-            self.handle.clone(),
-            MACVLAN_NAME,
-            dhcp_info.gateway,
-            dhcp_info.ip,
-        )
-        .await?;
+            net::add_address(self.handle.clone(), MACVLAN_NAME, IpNetwork::V4(ip_net)).await?;
+            net::add_default_route(
+                self.handle.clone(),
+                MACVLAN_NAME,
+                dhcp_info.gateway,
+                dhcp_info.ip,
+            )
+            .await?;
+
+            Ok(())
+        }
+        .await;
+
+        if let Err(error) = result {
+            debug!(
+                interface = MACVLAN_NAME,
+                error = %error,
+                "macvlan setup failed, cleaning up partial interface"
+            );
+            self.cleanup_macvlan().await;
+            return Err(error);
+        }
 
         Ok(())
     }
@@ -300,7 +327,14 @@ impl SrunService {
             .await?;
 
         self.srun_client
-            .login(&client, &callback, username, password, userinfo.ip, &challenge)
+            .login(
+                &client,
+                &callback,
+                username,
+                password,
+                userinfo.ip,
+                &challenge,
+            )
             .await?;
 
         Ok(LoginResult {

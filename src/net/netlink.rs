@@ -2,7 +2,9 @@ use crate::error::{Result, SrunError};
 use futures_util::stream::TryStreamExt;
 use netlink_packet_route::link::LinkAttribute;
 use pnet::ipnetwork::{IpNetwork, Ipv4Network};
-use rtnetlink::{Handle, LinkMacVlan, LinkUnspec, RouteMessageBuilder, packet_route::link::MacVlanMode};
+use rtnetlink::{
+    Handle, LinkMacVlan, LinkUnspec, RouteMessageBuilder, packet_route::link::MacVlanMode,
+};
 use std::fmt::{Display, Formatter};
 use std::net::Ipv4Addr;
 use tracing::{debug, info};

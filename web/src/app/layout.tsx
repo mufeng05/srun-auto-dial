@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Navbar } from "@/components/navbar";
+import { getRuntimeEnv } from "@/lib/env";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -18,15 +19,20 @@ export const metadata: Metadata = {
   description: "Campus network auto-dialer management interface",
 };
 
+export const dynamic = "force-dynamic";
+
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const env = getRuntimeEnv();
+
   return (
     <html lang="en" className="dark">
       <body
         className={`${geistSans.variable} ${geistMono.variable} min-h-screen bg-black text-white antialiased`}
+        data-env={JSON.stringify(env)}
       >
         <Navbar />
         <main className="mx-auto max-w-3xl px-6 py-12">{children}</main>

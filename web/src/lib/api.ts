@@ -1,5 +1,4 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:3000";
-const API_KEY = process.env.NEXT_PUBLIC_API_KEY || "";
+import { getRuntimeEnv } from "./env";
 
 export interface ApiResponse<T> {
   success: boolean;
@@ -39,15 +38,16 @@ async function request<T>(
   path: string,
   options?: RequestInit
 ): Promise<ApiResponse<T>> {
+  const { apiUrl, apiKey } = getRuntimeEnv();
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...(options?.headers as Record<string, string>),
   };
-  if (API_KEY) {
-    headers["X-API-Key"] = API_KEY;
+  if (apiKey) {
+    headers["X-API-Key"] = apiKey;
   }
 
-  const res = await fetch(`${API_BASE}${path}`, {
+  const res = await fetch(`${apiUrl}${path}`, {
     ...options,
     headers,
   });
@@ -64,6 +64,16 @@ export async function getInterfaces() {
 
 export async function getStatus(iface: string) {
   return request<StatusResult>(`/api/status?interface=${encodeURIComponent(iface)}`);
+}
+
+export async function getStatusMacvlan(parentInterface: string, macAddress: string) {
+  return request<StatusResult>("/api/status/macvlan", {
+    method: "POST",
+    body: JSON.stringify({
+      parent_interface: parentInterface,
+      mac_address: macAddress,
+    }),
+  });
 }
 
 export async function loginLocal(iface: string, username?: string, password?: string) {
@@ -99,10 +109,10 @@ export async function loginMacvlan(
   });
 }
 
-export async function logoutMacvlan(parentInterface: string) {
+export async function logoutMacvlan(parentInterface: string, macAddress: string) {
   return request<void>("/api/logout/macvlan", {
     method: "POST",
-    body: JSON.stringify({ parent_interface: parentInterface }),
+    body: JSON.stringify({ parent_interface: parentInterface, mac_address: macAddress }),
   });
 }
 
