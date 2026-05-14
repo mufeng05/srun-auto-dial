@@ -29,13 +29,10 @@ async fn local_mode(service: &SrunService) -> Result<()> {
 
     match operation {
         Operation::Login => {
-            let (creds, userinfo_path) = get_credentials()?;
+            let choice = get_credentials()?;
+            let (creds, userinfo_path) = choice.split();
             let result = service
-                .login_local(
-                    &link.name,
-                    creds.as_ref().map(|(u, p)| (u.as_str(), p.as_str())),
-                    userinfo_path.as_deref(),
-                )
+                .login_local(&link.name, creds, userinfo_path)
                 .await?;
             println!("Login successful, IP: {}", result.ip);
         }
@@ -60,14 +57,10 @@ async fn custom_mode(service: &SrunService) -> Result<()> {
     let operation = select_operation()?;
     match operation {
         Operation::Login => {
-            let (creds, userinfo_path) = get_credentials()?;
+            let choice = get_credentials()?;
+            let (creds, userinfo_path) = choice.split();
             let result = service
-                .login_macvlan(
-                    &link.name,
-                    &mac,
-                    creds.as_ref().map(|(u, p)| (u.as_str(), p.as_str())),
-                    userinfo_path.as_deref(),
-                )
+                .login_macvlan(&link.name, &mac, creds, userinfo_path)
                 .await?;
             println!(
                 "Login successful, User: {}, IP: {}",
@@ -123,9 +116,21 @@ async fn random_mode(service: &SrunService) -> Result<()> {
 
 // ---- UI helpers ----
 
-/// Returns (manual credentials, userinfo file path).
-/// At most one of the two is Some.
-fn get_credentials() -> Result<(Option<(String, String)>, Option<String>)> {
+enum CredentialChoice {
+    Manual { username: String, password: String },
+    File { path: String },
+}
+
+impl CredentialChoice {
+    fn split(&self) -> (Option<(&str, &str)>, Option<&str>) {
+        match self {
+            Self::Manual { username, password } => (Some((username, password)), None),
+            Self::File { path } => (None, Some(path)),
+        }
+    }
+}
+
+fn get_credentials() -> Result<CredentialChoice> {
     let mode = Select::new(
         "Select how to input user information:",
         vec![UserMode::Input, UserMode::Read],
@@ -139,11 +144,11 @@ fn get_credentials() -> Result<(Option<(String, String)>, Option<String>)> {
                 .with_display_mode(PasswordDisplayMode::Masked)
                 .without_confirmation()
                 .prompt()?;
-            Ok((Some((username, password)), None))
+            Ok(CredentialChoice::Manual { username, password })
         }
         UserMode::Read => {
             let path = select_userinfo_path("Select the user-info JSON to read:")?;
-            Ok((None, Some(path)))
+            Ok(CredentialChoice::File { path })
         }
     }
 }
